@@ -1,77 +1,56 @@
 package com.RecordMic;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.ByteArrayOutputStream;
 
-import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioInputStream;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.TargetDataLine;
 
-import marytts.util.data.audio.AudioPlayer;
-
-
 public class RecordMic {
-	RecordMic(){
-		final long RECORD_TIME = 1000;  // 1 minute
-		 
-	 
-	    // the line from which audio data is captured
-	    TargetDataLine line;
-	        float sampleRate = 16000;
-	        int sampleSizeInBits = 8;
-	        int channels = 2;
-	        boolean signed = true;
-	        boolean bigEndian = true;
-	        AudioFormat format = new AudioFormat(sampleRate, sampleSizeInBits,
-	                                             channels, signed, bigEndian);
- 
-	        try {
-	        	DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
- 
-	        	// checks if system supports the data line
-	        	if (!AudioSystem.isLineSupported(info)) {
-	        		System.out.println("Line not supported");
-	        		System.exit(0);
-            }
-            line = (TargetDataLine) AudioSystem.getLine(info);
-            line.open(format);
-            line.start();   // start capturing
-            System.out.println("Start capturing...");
-            AudioInputStream ais = new AudioInputStream(line);
-            System.out.println("Start recording...");           
-            try {
-				Thread.sleep(5000);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-            
-            
-            AudioPlayer ap = new AudioPlayer();
-			AudioInputStream audio = ais;
-			ap.setAudio(audio);			
-			ap.start();
-			System.out.println("Start playing...");
-			try {
-				Thread.sleep(5000);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+	RecordMic() {
+		//final long RECORD_TIME = 1000; // 1 minute
 
-			line.stop();
-            line.close();
-            System.out.print("\n");
- 
-        } catch (LineUnavailableException ex) {
-            ex.printStackTrace();
-        }
+		// the line from which audio data is captured
+		AudioFormat format = new AudioFormat(8000.0f, 16, 1, true, true);
+		TargetDataLine microphone;
+		SourceDataLine speakers;
+		try {
+			microphone = AudioSystem.getTargetDataLine(format);
 
-	    System.out.println("Finished");
+			DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
+			microphone = (TargetDataLine) AudioSystem.getLine(info);
+			microphone.open(format);
+
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			int numBytesRead;
+			int CHUNK_SIZE = 1024;
+			byte[] data = new byte[microphone.getBufferSize() / 5];
+			microphone.start();
+
+			int bytesRead = 0;
+			DataLine.Info dataLineInfo = new DataLine.Info(SourceDataLine.class, format);
+			speakers = (SourceDataLine) AudioSystem.getLine(dataLineInfo);
+			speakers.open(format);
+			speakers.start();
+			while (bytesRead < 100000) {
+				numBytesRead = microphone.read(data, 0, CHUNK_SIZE);
+				bytesRead += numBytesRead;
+				// write the mic data to a stream for use later
+				out.write(data, 0, numBytesRead);
+				// write mic data to stream for immediate playback
+				speakers.write(data, 0, numBytesRead);
+			}
+			speakers.drain();
+			speakers.close();
+			microphone.close();
+		} catch (LineUnavailableException e) {
+			e.printStackTrace();
+		}
+
+		System.exit(0);
 	}
 
 	public static void main(String[] args) {
